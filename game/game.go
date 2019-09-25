@@ -125,10 +125,7 @@ func (world *World) HandleEvent(event *Event) {
 }
 
 func (world *World) AddPlayer() *Unit {
-	skins := []string{
-		"elf_f", "elf_m", "knight_f", "knight_m",
-		"lizard_f", "lizard_m", "wizzard_f", "wizzard_m",
-	}
+	skins := GetHeroesSkins()
 	id := uuid.NewV4().String()
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	unit := &Unit{
@@ -142,4 +139,11 @@ func (world *World) AddPlayer() *Unit {
 	world.Units[id] = unit
 
 	return unit
+}
+
+func GetHeroesSkins() []string {
+	return []string{
+		"elf_f", "elf_m", "knight_f", "knight_m",
+		"lizard_f", "lizard_m", "wizzard_f", "wizzard_m",
+	}
 }

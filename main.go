@@ -14,11 +14,26 @@ import (
 var world game.World
 var frame int
 var img *e.Image
+var sprites map[string][]*e.Image
 
 func init() {
 	world = game.World{
 		IsServer: false,
 		Units:    game.Units{},
+	}
+
+	sprites = map[string][]*e.Image{}
+	for _, skin := range game.GetHeroesSkins() {
+		for _, action := range []string{game.ActionIdle, game.ActionRun} {
+			sprite := []*e.Image{}
+			for i := 0; i < 4; i++ {
+				path := "sprites/" + skin + "_idle_anim_f" + strconv.Itoa(i) + ".png"
+				img, _, _ = ebitenutil.NewImageFromFile(path, e.FilterDefault)
+				sprite = append(sprite, img)
+			}
+			name := skin + "_" + action
+			sprites[name] = sprite
+		}
 	}
 }
 
@@ -49,11 +64,8 @@ func update(c *websocket.Conn) func(screen *e.Image) error {
 			op.GeoM.Translate(unit.X, unit.Y)
 
 			spriteIndex := (frame/7 + unit.Frame) % 4
-			img, _, _ = ebitenutil.NewImageFromFile(
-				"sprites/"+unit.SpriteName+"_"+unit.Action+"_anim_f"+strconv.Itoa(spriteIndex)+".png",
-				e.FilterDefault,
-			)
-			screen.DrawImage(img, op)
+			name := unit.SpriteName + "_" + unit.Action
+			screen.DrawImage(sprites[name][spriteIndex], op)
 		}
 
 		if e.IsKeyPressed(e.KeyD) || e.IsKeyPressed(e.KeyRight) {
