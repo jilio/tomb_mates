@@ -48,6 +48,9 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	// Client UUIDv4.
+	id string
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -57,6 +60,14 @@ type Client struct {
 // reads from this goroutine.
 func (c *Client) readPump(world *game.World) {
 	defer func() {
+		event := game.Event{
+			Type: game.EventTypeExit,
+			Data: game.EventExit{UnitID: c.id},
+		}
+		message, _ := json.Marshal(event)
+		world.HandleEvent(&event)
+		c.hub.broadcast <- message
+
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -144,6 +155,7 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 			Units:    world.Units,
 		},
 	})
+	client.id = player.ID
 
 	message, _ := json.Marshal(game.Event{
 		Type: game.EventTypeConnect,

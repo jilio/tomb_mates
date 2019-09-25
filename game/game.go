@@ -49,10 +49,15 @@ type EventInit struct {
 	Units    Units  `json:"units"`
 }
 
+type EventExit struct {
+	UnitID string `json:"unit_id"`
+}
+
 const EventTypeConnect = "connect"
 const EventTypeMove = "move"
 const EventTypeIdle = "idle"
 const EventTypeInit = "init"
+const EventTypeExit = "exit"
 
 const ActionRun = "run"
 const ActionIdle = "idle"
@@ -109,6 +114,13 @@ func (world *World) HandleEvent(event *Event) {
 
 		unit := world.Units[ev.UnitID]
 		unit.Action = ActionIdle
+
+	case EventTypeExit:
+		str, _ := json.Marshal(event.Data)
+		var ev EventExit
+		json.Unmarshal(str, &ev)
+
+		delete(world.Units, ev.UnitID)
 	}
 }
 
