@@ -20,10 +20,20 @@ type Unit struct {
 
 type Units map[string]*Unit
 
+type Item struct {
+	ID     string  `json:"id"`
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	Entity string  `json:"entity"`
+}
+
+type Items map[string]*Item
+
 type World struct {
 	MyID     string `json:"-"`
 	IsServer bool   `json:"-"`
 	Units    `json:"units"`
+	Items    `json:"items"`
 }
 
 type Event struct {
@@ -47,6 +57,7 @@ type EventIdle struct {
 type EventInit struct {
 	PlayerID string `json:"player_id"`
 	Units    Units  `json:"units"`
+	Items    Items  `json:"items"`
 }
 
 type EventExit struct {
@@ -67,6 +78,9 @@ const DirectionDown = 1
 const DirectionLeft = 2
 const DirectionRight = 3
 
+const ItemCoin = "coin"
+const ItemHealthPotion = "health_potion"
+
 func (world *World) HandleEvent(event *Event) {
 	switch event.Type {
 	case EventTypeConnect:
@@ -84,6 +98,7 @@ func (world *World) HandleEvent(event *Event) {
 		if !world.IsServer {
 			world.MyID = ev.PlayerID
 			world.Units = ev.Units
+			world.Items = ev.Items
 		}
 
 	case EventTypeMove:
@@ -125,7 +140,7 @@ func (world *World) HandleEvent(event *Event) {
 }
 
 func (world *World) AddPlayer() *Unit {
-	skins := GetHeroesSkins()
+	skins := GetUnits()
 	id := uuid.NewV4().String()
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	unit := &Unit{
@@ -141,9 +156,35 @@ func (world *World) AddPlayer() *Unit {
 	return unit
 }
 
-func GetHeroesSkins() []string {
+func GetUnits() []string {
 	return []string{
 		"elf_f", "elf_m", "knight_f", "knight_m",
 		"lizard_f", "lizard_m", "wizzard_f", "wizzard_m",
+	}
+}
+
+func (world *World) AddItem(entity string, x, y float64) *Item {
+	id := uuid.NewV4().String()
+	item := &Item{
+		ID:     id,
+		X:      x,
+		Y:      y,
+		Entity: entity,
+	}
+	world.Items[id] = item
+
+	return item
+}
+
+type ItemInfo struct {
+	Entity string
+	Prefix string
+	Frames int
+}
+
+func GetItems() []ItemInfo {
+	return []ItemInfo{
+		ItemInfo{ItemCoin, "sprites/coin_anim_f", 4},
+		ItemInfo{ItemHealthPotion, "sprites/flask_red", 1},
 	}
 }

@@ -153,6 +153,7 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 		Data: game.EventInit{
 			PlayerID: player.ID,
 			Units:    world.Units,
+			Items:    world.Items,
 		},
 	})
 	client.id = player.ID
