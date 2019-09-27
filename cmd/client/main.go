@@ -23,11 +23,13 @@ type Sprite struct {
 	Frame  int
 	X      float64
 	Y      float64
+	Side   game.Direction
+	Config image.Config
 }
 
 var config *Config
 var world *game.World
-var frames map[string][]image.Image
+var frames map[string]game.Frames
 var frame int
 var lastKey e.Key
 var prevKey e.Key
@@ -89,15 +91,23 @@ func update(c *websocket.Conn) func(screen *e.Image) error {
 		sprites := []Sprite{}
 		for _, unit := range world.Units {
 			sprites = append(sprites, Sprite{
-				Frames: frames[unit.Skin+"_"+unit.Action],
+				Frames: frames[unit.Skin+"_"+unit.Action].Frames,
 				Frame:  int(unit.Frame),
 				X:      unit.X,
 				Y:      unit.Y,
+				Side:   unit.Side,
+				Config: frames[unit.Skin+"_"+unit.Action].Config,
 			})
 		}
 
 		for _, sprite := range sprites {
 			op := &e.DrawImageOptions{}
+
+			if sprite.Side == game.Direction_left {
+				op.GeoM.Scale(-1, 1)
+				op.GeoM.Translate(float64(sprite.Config.Width), 0)
+			}
+
 			op.GeoM.Translate(sprite.X, sprite.Y)
 
 			img, err := e.NewImageFromImage(sprite.Frames[(frame/7+sprite.Frame)%4], e.FilterDefault)

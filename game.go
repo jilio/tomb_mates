@@ -16,6 +16,7 @@ type World struct {
 }
 
 func (world *World) AddPlayer() string {
+	skins := []string{"big_demon", "big_zombie", "elf_f"}
 	id := uuid.NewV4().String()
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	unit := &Unit{
@@ -23,7 +24,7 @@ func (world *World) AddPlayer() string {
 		X:      rnd.Float64()*300 + 10,
 		Y:      rnd.Float64()*220 + 10,
 		Frame:  int32(rnd.Intn(4)),
-		Skin:   []string{"big_demon", "big_zombie"}[rnd.Intn(2)],
+		Skin:   skins[rnd.Intn(len(skins))],
 		Action: "idle",
 		Speed:  1,
 	}
@@ -79,8 +80,10 @@ func (world *World) Evolve() {
 					switch unit.Direction {
 					case Direction_left:
 						unit.X -= unit.Speed
+						unit.Side = Direction_left
 					case Direction_right:
 						unit.X += unit.Speed
+						unit.Side = Direction_right
 					case Direction_up:
 						unit.Y -= unit.Speed
 					case Direction_down:

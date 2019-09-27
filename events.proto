@@ -18,6 +18,7 @@ message Unit {
     string action = 6;
     double speed = 7;
     Direction direction = 8;
+    Direction side = 9;
 }
 
 message Event {
