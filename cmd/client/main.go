@@ -205,6 +205,7 @@ func handleKeyboard(c *websocket.Conn) {
 				return
 			}
 			c.WriteMessage(websocket.BinaryMessage, message)
+			lastKey = -1
 		}
 	}
 
