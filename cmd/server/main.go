@@ -1,8 +1,8 @@
 package main
 
 import (
-	game "github.com/jilio/tomb_mates"
 	"github.com/gin-gonic/gin"
+	game "github.com/jilio/tomb_mates"
 )
 
 var world *game.World
@@ -15,6 +15,8 @@ func init() {
 }
 
 func main() {
+	go world.Evolve()
+
 	hub := newHub()
 	go hub.run()
 

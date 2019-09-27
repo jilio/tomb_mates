@@ -7,7 +7,7 @@
 ## Запустить сервер
 
 ```
-cd server
+cd cmd/server
 go run *go
 ```
 
@@ -16,6 +16,7 @@ go run *go
 ###### Не будет работать без запущенного сервера
 
 ```
+cd cmd/client
 go run main.go
 ```
 

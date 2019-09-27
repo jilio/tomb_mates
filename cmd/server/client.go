@@ -158,14 +158,7 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 	event = &game.Event{
 		Type: game.Event_type_connect,
 		Data: &game.Event_Connect{
-			&game.EventConnect{Unit: &game.Unit{
-				Id:     id,
-				X:      unit.X,
-				Y:      unit.Y,
-				Action: unit.Action,
-				Frame:  unit.Frame,
-				Skin:   unit.Skin,
-			}},
+			&game.EventConnect{Unit: unit},
 		},
 	}
 	message, err = proto.Marshal(event)

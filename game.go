@@ -25,6 +25,7 @@ func (world *World) AddPlayer() string {
 		Frame:  int32(rnd.Intn(4)),
 		Skin:   []string{"big_demon", "big_zombie"}[rnd.Intn(2)],
 		Action: "idle",
+		Speed:  1,
 	}
 	world.Units[id] = unit
 
@@ -51,7 +52,47 @@ func (world *World) HandleEvent(event *Event) {
 		data := event.GetExit()
 		delete(world.Units, data.PlayerId)
 
+	case Event_type_move:
+		data := event.GetMove()
+		unit := world.Units[data.PlayerId]
+		unit.Action = UnitActionMove
+		unit.Direction = data.Direction
+
+	case Event_type_idle:
+		data := event.GetIdle()
+		unit := world.Units[data.PlayerId]
+		unit.Action = UnitActionIdle
+
 	default:
 		log.Println("UNKNOWN EVENT: ", event)
 	}
 }
+
+func (world *World) Evolve() {
+	ticker := time.NewTicker(time.Second / 60)
+
+	for {
+		select {
+		case <-ticker.C:
+			for _, unit := range world.Units {
+				if unit.Action == UnitActionMove {
+					switch unit.Direction {
+					case Direction_left:
+						unit.X -= unit.Speed
+					case Direction_right:
+						unit.X += unit.Speed
+					case Direction_up:
+						unit.Y -= unit.Speed
+					case Direction_down:
+						unit.Y += unit.Speed
+					default:
+						log.Println("UNKNOWN DIRECTION: ", unit.Direction)
+					}
+				}
+			}
+		}
+	}
+}
+
+const UnitActionMove = "run"
+const UnitActionIdle = "idle"
