@@ -19,9 +19,12 @@ func (world *World) AddPlayer() string {
 	id := uuid.NewV4().String()
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	unit := &Unit{
-		Id: id,
-		X:  rnd.Float64()*300 + 10,
-		Y:  rnd.Float64()*220 + 10,
+		Id:     id,
+		X:      rnd.Float64()*300 + 10,
+		Y:      rnd.Float64()*220 + 10,
+		Frame:  int32(rnd.Intn(4)),
+		Skin:   []string{"big_demon", "big_zombie"}[rnd.Intn(2)],
+		Action: "idle",
 	}
 	world.Units[id] = unit
 
@@ -43,6 +46,10 @@ func (world *World) HandleEvent(event *Event) {
 			world.MyID = data.PlayerId
 			world.Units = data.Units
 		}
+
+	case Event_type_exit:
+		data := event.GetExit()
+		delete(world.Units, data.PlayerId)
 
 	default:
 		log.Println("UNKNOWN EVENT: ", event)

@@ -4,10 +4,10 @@ import (
 	"image"
 	"log"
 
-	game "github.com/jilio/tomb_mates"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	e "github.com/hajimehoshi/ebiten"
+	game "github.com/jilio/tomb_mates"
 )
 
 type Config struct {
@@ -77,16 +77,30 @@ func main() {
 func update(screen *e.Image) error {
 	frame++
 
-	eimg, err := e.NewImageFromImage(frames["big_demon_run"][frame/7%4], e.FilterDefault)
-	if err != nil {
-		log.Println(err)
-		return err
+	sprites := []Sprite{}
+	for _, unit := range world.Units {
+		sprites = append(sprites, Sprite{
+			Frames: frames[unit.Skin+"_"+unit.Action],
+			Frame:  int(unit.Frame),
+			X:      unit.X,
+			Y:      unit.Y,
+		})
 	}
 
-	err = screen.DrawImage(eimg, nil)
-	if err != nil {
-		log.Println(err)
-		return err
+	for _, sprite := range sprites {
+		op := &e.DrawImageOptions{}
+		op.GeoM.Translate(sprite.X, sprite.Y)
+		img, err := e.NewImageFromImage(sprite.Frames[(frame/7+sprite.Frame)%4], e.FilterDefault)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		err = screen.DrawImage(img, op)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
 	}
 
 	return nil

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	game "github.com/jilio/tomb_mates"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	game "github.com/jilio/tomb_mates"
 )
 
 const (
@@ -154,13 +154,17 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 	}
 	conn.WriteMessage(websocket.BinaryMessage, message)
 
+	unit := world.Units[id]
 	event = &game.Event{
 		Type: game.Event_type_connect,
 		Data: &game.Event_Connect{
 			&game.EventConnect{Unit: &game.Unit{
-				Id: id,
-				X:  20.0,
-				Y:  40.0,
+				Id:     id,
+				X:      unit.X,
+				Y:      unit.Y,
+				Action: unit.Action,
+				Frame:  unit.Frame,
+				Skin:   unit.Skin,
 			}},
 		},
 	}

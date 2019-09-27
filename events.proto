@@ -6,6 +6,9 @@ message Unit {
     string id = 1;
     double x = 2;
     double y = 3;
+    int32 frame = 4;
+    string skin = 5;
+    string action = 6;
 }
 
 message Event {
