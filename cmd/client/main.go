@@ -3,6 +3,7 @@ package main
 import (
 	"image"
 	"log"
+	"os"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
@@ -28,6 +29,8 @@ var config *Config
 var world *game.World
 var frames map[string][]image.Image
 var frame int
+var lastKey e.Key
+var prevKey e.Key
 
 func init() {
 	config = &Config{
@@ -52,7 +55,8 @@ func init() {
 func main() {
 	go world.Evolve()
 
-	c, _, _ := websocket.DefaultDialer.Dial("ws://127.0.0.1:3000/ws", nil)
+	host := getEnv("HOST", "localhost")
+	c, _, _ := websocket.DefaultDialer.Dial("ws://"+host+":3000/ws", nil)
 	go func(c *websocket.Conn) {
 		defer c.Close()
 
@@ -78,6 +82,8 @@ func main() {
 
 func update(c *websocket.Conn) func(screen *e.Image) error {
 	return func(screen *e.Image) error {
+		handleKeyboard(c)
+
 		frame++
 
 		sprites := []Sprite{}
@@ -107,19 +113,12 @@ func update(c *websocket.Conn) func(screen *e.Image) error {
 			}
 		}
 
-		err := handleMove(c)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
 		return nil
 	}
 }
 
-func handleMove(c *websocket.Conn) error {
+func handleKeyboard(c *websocket.Conn) {
 	event := &game.Event{}
-	unit := world.Units[world.MyID]
 
 	if e.IsKeyPressed(e.KeyA) || e.IsKeyPressed(e.KeyLeft) {
 		event = &game.Event{
@@ -130,6 +129,9 @@ func handleMove(c *websocket.Conn) error {
 					Direction: game.Direction_left,
 				},
 			},
+		}
+		if lastKey != e.KeyA {
+			lastKey = e.KeyA
 		}
 	}
 
@@ -143,6 +145,9 @@ func handleMove(c *websocket.Conn) error {
 				},
 			},
 		}
+		if lastKey != e.KeyD {
+			lastKey = e.KeyD
+		}
 	}
 
 	if e.IsKeyPressed(e.KeyW) || e.IsKeyPressed(e.KeyUp) {
@@ -154,6 +159,9 @@ func handleMove(c *websocket.Conn) error {
 					Direction: game.Direction_up,
 				},
 			},
+		}
+		if lastKey != e.KeyW {
+			lastKey = e.KeyW
 		}
 	}
 
@@ -167,14 +175,19 @@ func handleMove(c *websocket.Conn) error {
 				},
 			},
 		}
+		if lastKey != e.KeyS {
+			lastKey = e.KeyS
+		}
 	}
 
+	unit := world.Units[world.MyID]
+
 	if event.Type == game.Event_type_move {
-		if unit.Action != game.UnitActionMove {
+		if prevKey != lastKey {
 			message, err := proto.Marshal(event)
 			if err != nil {
 				log.Println(err)
-				return err
+				return
 			}
 			c.WriteMessage(websocket.BinaryMessage, message)
 		}
@@ -189,11 +202,18 @@ func handleMove(c *websocket.Conn) error {
 			message, err := proto.Marshal(event)
 			if err != nil {
 				log.Println(err)
-				return err
+				return
 			}
 			c.WriteMessage(websocket.BinaryMessage, message)
 		}
 	}
 
-	return nil
+	prevKey = lastKey
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
