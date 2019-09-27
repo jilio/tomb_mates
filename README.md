@@ -1,5 +1,9 @@
 # tomb_mates
 
+Процесс написания игры можно посмотреть на [YouTube](https://www.youtube.com/watch?v=jMqC_VUEAgs)
+
+![Скриншот](./screenshot.png 'Скриншотес')
+
 ## Запустить сервер
 
 ```
