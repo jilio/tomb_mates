@@ -1,25 +1,20 @@
-// Copyright 2013 The Gorilla WebSocket Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
+	game "github.com/jilio/tomb_mates"
+	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	"github.com/jilio/tomb_mates/game"
 )
 
 const (
 	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
 
-	// Time allowed to read the next pong message from the peer.
+	// // Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
 
 	// Send pings to peer with this period. Must be less than pongWait.
@@ -29,11 +24,6 @@ const (
 	maxMessageSize = 512
 )
 
-var (
-	newline = []byte{'\n'}
-	space   = []byte{' '}
-)
-
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -41,16 +31,10 @@ var upgrader = websocket.Upgrader{
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub *Hub
-
-	// The websocket connection.
+	id   string
+	hub  *Hub
 	conn *websocket.Conn
-
-	// Buffered channel of outbound messages.
 	send chan []byte
-
-	// Client UUIDv4.
-	id string
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -60,12 +44,17 @@ type Client struct {
 // reads from this goroutine.
 func (c *Client) readPump(world *game.World) {
 	defer func() {
-		event := game.Event{
-			Type: game.EventTypeExit,
-			Data: game.EventExit{UnitID: c.id},
+		event := &game.Event{
+			Type: game.Event_type_exit,
+			Data: &game.Event_Exit{
+				&game.EventExit{PlayerId: c.id},
+			},
 		}
-		message, _ := json.Marshal(event)
-		world.HandleEvent(&event)
+		message, err := proto.Marshal(event)
+		if err != nil {
+			log.Println(err)
+		}
+		world.HandleEvent(event)
 		c.hub.broadcast <- message
 
 		c.hub.unregister <- c
@@ -82,12 +71,13 @@ func (c *Client) readPump(world *game.World) {
 			}
 			break
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- message
-
-		var event game.Event
-		json.Unmarshal(message, &event)
-		world.HandleEvent(&event)
+		c.hub.broadcast <- message // ?
+		event := &game.Event{}
+		err = proto.Unmarshal(message, event)
+		if err != nil {
+			log.Println(err)
+		}
+		world.HandleEvent(event)
 	}
 }
 
@@ -112,7 +102,7 @@ func (c *Client) writePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			w, err := c.conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
 				return
 			}
@@ -121,7 +111,6 @@ func (c *Client) writePump() {
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
-				w.Write(newline)
 				w.Write(<-c.send)
 			}
 
@@ -144,30 +133,46 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+
+	id := world.AddPlayer()
+	client := &Client{id: id, hub: hub, conn: conn, send: make(chan []byte, 256)}
 	client.hub.register <- client
 
-	player := world.AddPlayer()
-	conn.WriteJSON(game.Event{
-		Type: game.EventTypeInit,
-		Data: game.EventInit{
-			PlayerID: player.ID,
-			Units:    world.Units,
-			Items:    world.Items,
+	event := &game.Event{
+		Type: game.Event_type_init,
+		Data: &game.Event_Init{
+			&game.EventInit{
+				PlayerId: id,
+				Units:    world.Units,
+			},
 		},
-	})
-	client.id = player.ID
+	}
+	message, err := proto.Marshal(event)
+	if err != nil {
+		//todo: remove unit
+		log.Println(err)
+	}
+	conn.WriteMessage(websocket.BinaryMessage, message)
 
-	message, _ := json.Marshal(game.Event{
-		Type: game.EventTypeConnect,
-		Data: game.EventConnect{
-			*world.Units[player.ID],
+	event = &game.Event{
+		Type: game.Event_type_connect,
+		Data: &game.Event_Connect{
+			&game.EventConnect{Unit: &game.Unit{
+				Id: id,
+				X:  20.0,
+				Y:  40.0,
+			}},
 		},
-	})
+	}
+	message, err = proto.Marshal(event)
+	if err != nil {
+		//todo: remove unit
+		log.Println(err)
+	}
 	hub.broadcast <- message
 
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
+	// Allow collection of memory referenced by the caller by doing all work
+	// in new goroutines.
 	go client.writePump()
 	go client.readPump(world)
 }
