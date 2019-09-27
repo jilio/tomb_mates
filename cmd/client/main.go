@@ -4,6 +4,7 @@ import (
 	"image"
 	"log"
 	"os"
+	"sort"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
@@ -99,6 +100,11 @@ func update(c *websocket.Conn) func(screen *e.Image) error {
 				Config: frames[unit.Skin+"_"+unit.Action].Config,
 			})
 		}
+		sort.Slice(sprites, func(i, j int) bool {
+			depth1 := sprites[i].Y + float64(sprites[i].Config.Height)
+			depth2 := sprites[j].Y + float64(sprites[j].Config.Height)
+			return depth1 < depth2
+		})
 
 		for _, sprite := range sprites {
 			op := &e.DrawImageOptions{}
