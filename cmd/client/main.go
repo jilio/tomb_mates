@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	e "github.com/hajimehoshi/ebiten"
+	"github.com/hajimehoshi/ebiten/ebitenutil"
 	game "github.com/jilio/tomb_mates"
 )
 
@@ -28,12 +30,20 @@ type Sprite struct {
 	Config image.Config
 }
 
+type Camera struct {
+	X       float64
+	Y       float64
+	Padding float64
+}
+
 var config *Config
 var world *game.World
+var camera *Camera
 var frames map[string]game.Frames
 var frame int
 var lastKey e.Key
 var prevKey e.Key
+var levelImage *e.Image
 
 func init() {
 	config = &Config{
@@ -50,6 +60,11 @@ func init() {
 
 	var err error
 	frames, err = game.LoadResources()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	levelImage, err = prepareLevelImage()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,6 +91,15 @@ func main() {
 			}
 
 			world.HandleEvent(event)
+
+			if event.Type == game.Event_type_connect {
+				me := world.Units[world.MyID]
+				camera = &Camera{
+					X:       me.X,
+					Y:       me.Y,
+					Padding: 30,
+				}
+			}
 		}
 	}(c)
 
@@ -86,6 +110,12 @@ func main() {
 func update(c *websocket.Conn) func(screen *e.Image) error {
 	return func(screen *e.Image) error {
 		handleKeyboard(c)
+
+		if e.IsDrawingSkipped() {
+			return nil
+		}
+
+		handleCamera(screen)
 
 		frame++
 
@@ -114,7 +144,7 @@ func update(c *websocket.Conn) func(screen *e.Image) error {
 				op.GeoM.Translate(float64(sprite.Config.Width), 0)
 			}
 
-			op.GeoM.Translate(sprite.X, sprite.Y)
+			op.GeoM.Translate(sprite.X-camera.X, sprite.Y-camera.Y)
 
 			img, err := e.NewImageFromImage(sprite.Frames[(frame/7+sprite.Frame)%4], e.FilterDefault)
 			if err != nil {
@@ -129,8 +159,53 @@ func update(c *websocket.Conn) func(screen *e.Image) error {
 			}
 		}
 
+		ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", e.CurrentTPS()))
+
 		return nil
 	}
+}
+
+func prepareLevelImage() (*e.Image, error) {
+	tileSize := 16
+	level := game.LoadLevel()
+	width := len(level[0])
+	height := len(level)
+	levelImage, _ := e.NewImage(width*tileSize, height*tileSize, e.FilterDefault)
+
+	for i := 0; i < width; i++ {
+		for j := 0; j < height; j++ {
+			op := &e.DrawImageOptions{}
+			op.GeoM.Translate(float64(i*tileSize), float64(j*tileSize))
+
+			img, err := e.NewImageFromImage(frames[level[j][i]].Frames[0], e.FilterDefault)
+			if err != nil {
+				log.Println(err)
+				return levelImage, err
+			}
+			err = levelImage.DrawImage(img, op)
+			if err != nil {
+				log.Println(err)
+				return levelImage, err
+			}
+		}
+	}
+
+	return levelImage, nil
+}
+
+func handleCamera(screen *e.Image) {
+	if camera == nil {
+		return
+	}
+
+	player := world.Units[world.MyID]
+	frame := frames[player.Skin+"_"+player.Action]
+	camera.X = player.X - float64(config.width-frame.Config.Width)/2
+	camera.Y = player.Y - float64(config.height-frame.Config.Height)/2
+
+	op := &e.DrawImageOptions{}
+	op.GeoM.Translate(-camera.X, -camera.Y)
+	screen.DrawImage(levelImage, op)
 }
 
 func handleKeyboard(c *websocket.Conn) {
