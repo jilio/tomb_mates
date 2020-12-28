@@ -1,11 +1,11 @@
 package tinyrpg
 
 import (
-	"bytes"
 	"image"
 	"image/png"
+	"os"
 
-	"github.com/gobuffalo/packr/v2"
+	"github.com/markbates/pkger"
 )
 
 type Frames struct {
@@ -17,23 +17,43 @@ func LoadResources() (map[string]Frames, error) {
 	images := map[string]image.Image{}
 	cfgs := map[string]image.Config{}
 	sprites := map[string]Frames{}
-	imagesBox := packr.New("images", "./resources/sprites")
 
-	list := imagesBox.List()
-	for _, filename := range list {
-		data, err := imagesBox.Find(filename)
-		if err != nil {
-			return sprites, err
+	prefix := "/resources/sprites"
+	err := pkger.Walk(prefix, func(path string, info os.FileInfo, err error) error {
+
+		if info.IsDir() == false {
+			filename := prefix + "/" + info.Name()
+			file, err := pkger.Open(filename)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			img, err := png.Decode(file)
+			if err != nil {
+				return err
+			}
+
+			fileCfg, err := pkger.Open(filename)
+			if err != nil {
+				return err
+			}
+			defer fileCfg.Close()
+
+			cfg, err := png.DecodeConfig(fileCfg)
+			if err != nil {
+				return err
+			}
+
+			images[info.Name()] = img
+			cfgs[info.Name()] = cfg
 		}
-		img, err := png.Decode(bytes.NewReader(data))
-		if err != nil {
-			return sprites, err
-		}
 
-		cfg, err := png.DecodeConfig(bytes.NewReader(data))
+		return nil
+	})
 
-		images[filename] = img
-		cfgs[filename] = cfg
+	if err != nil {
+		return sprites, err
 	}
 
 	sprites["big_demon_idle"] = Frames{
@@ -135,23 +155,23 @@ func LoadLevel() [][]string {
 	d := "floor_4"
 
 	level := [][]string{
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, b, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, c, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, c, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, d, a, a, a, a, a, a, a},
-		[]string{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, b, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, c, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, c, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, d, a, a, a, a, a, a, a},
+		{a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a},
 	}
 
 	return level
