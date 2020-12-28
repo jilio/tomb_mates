@@ -47,7 +47,7 @@ func (c *Client) readPump(world *engine.World) {
 		event := &engine.Event{
 			Type: engine.Event_type_exit,
 			Data: &engine.Event_Exit{
-				&engine.EventExit{PlayerId: c.id},
+				Exit: &engine.EventExit{PlayerId: c.id},
 			},
 		}
 		message, err := proto.Marshal(event)
@@ -141,7 +141,7 @@ func serveWs(hub *Hub, world *engine.World, w http.ResponseWriter, r *http.Reque
 	event := &engine.Event{
 		Type: engine.Event_type_init,
 		Data: &engine.Event_Init{
-			&engine.EventInit{
+			Init: &engine.EventInit{
 				PlayerId: id,
 				Units:    world.Units,
 			},
@@ -158,7 +158,7 @@ func serveWs(hub *Hub, world *engine.World, w http.ResponseWriter, r *http.Reque
 	event = &engine.Event{
 		Type: engine.Event_type_connect,
 		Data: &engine.Event_Connect{
-			&engine.EventConnect{Unit: unit},
+			Connect: &engine.EventConnect{Unit: unit},
 		},
 	}
 	message, err = proto.Marshal(event)
