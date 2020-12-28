@@ -9,9 +9,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	e "github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
-	game "github.com/jilio/tomb_mates"
+	e "github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	engine "github.com/jilio/tomb_mates"
 )
 
 type Config struct {
@@ -26,7 +26,7 @@ type Sprite struct {
 	Frame  int
 	X      float64
 	Y      float64
-	Side   game.Direction
+	Side   engine.Direction
 	Config image.Config
 }
 
@@ -37,29 +37,90 @@ type Camera struct {
 }
 
 var config *Config
-var world *game.World
+var world *engine.World
 var camera *Camera
-var frames map[string]game.Frames
+var frames map[string]engine.Frames
 var frame int
 var lastKey e.Key
 var prevKey e.Key
 var levelImage *e.Image
 
+// Game implements ebiten.Game interface.
+type Game struct {
+	Conn *websocket.Conn
+}
+
+// Update proceeds the game state.
+// Update is called every tick (1/60 [s] by default).
+func (g *Game) Update() error {
+	// Write your game's logical update.
+	handleKeyboard(g.Conn)
+
+	return nil
+}
+
+// Draw draws the game screen.
+// Draw is called every frame (typically 1/60[s] for 60Hz display).
+func (g *Game) Draw(screen *e.Image) {
+	// Write your game's rendering.
+	handleCamera(screen)
+
+	frame++
+
+	sprites := []Sprite{}
+	for _, unit := range world.Units {
+		sprites = append(sprites, Sprite{
+			Frames: frames[unit.Skin+"_"+unit.Action].Frames,
+			Frame:  int(unit.Frame),
+			X:      unit.X,
+			Y:      unit.Y,
+			Side:   unit.Side,
+			Config: frames[unit.Skin+"_"+unit.Action].Config,
+		})
+	}
+	sort.Slice(sprites, func(i, j int) bool {
+		depth1 := sprites[i].Y + float64(sprites[i].Config.Height)
+		depth2 := sprites[j].Y + float64(sprites[j].Config.Height)
+		return depth1 < depth2
+	})
+
+	for _, sprite := range sprites {
+		op := &e.DrawImageOptions{}
+
+		if sprite.Side == engine.Direction_left {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(float64(sprite.Config.Width), 0)
+		}
+
+		op.GeoM.Translate(sprite.X-camera.X, sprite.Y-camera.Y)
+
+		img := e.NewImageFromImage(sprite.Frames[(frame/7+sprite.Frame)%4])
+		screen.DrawImage(img, op)
+	}
+
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", e.CurrentTPS()))
+}
+
+// Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
+// If you don't have to adjust the screen size with the outside size, just return a fixed size.
+func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+	return outsideWidth, outsideHeight
+}
+
 func init() {
 	config = &Config{
 		title:  "Another Hero",
-		width:  320,
-		height: 240,
-		scale:  2,
+		width:  640,
+		height: 480,
 	}
 
-	world = &game.World{
+	world = &engine.World{
 		Replica: true,
-		Units:   map[string]*game.Unit{},
+		Units:   map[string]*engine.Unit{},
 	}
 
 	var err error
-	frames, err = game.LoadResources()
+	frames, err = engine.LoadResources()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,7 +145,7 @@ func main() {
 				log.Fatal(err)
 			}
 
-			event := &game.Event{}
+			event := &engine.Event{}
 			err = proto.Unmarshal(message, event)
 			if err != nil {
 				log.Fatal(err)
@@ -92,7 +153,7 @@ func main() {
 
 			world.HandleEvent(event)
 
-			if event.Type == game.Event_type_connect {
+			if event.Type == engine.Event_type_connect {
 				me := world.Units[world.MyID]
 				camera = &Camera{
 					X:       me.X,
@@ -103,90 +164,29 @@ func main() {
 		}
 	}(c)
 
-	e.SetRunnableInBackground(true)
-	e.Run(update(c), config.width, config.height, config.scale, config.title)
-}
-
-func update(c *websocket.Conn) func(screen *e.Image) error {
-	return func(screen *e.Image) error {
-		handleKeyboard(c)
-
-		if e.IsDrawingSkipped() {
-			return nil
-		}
-
-		handleCamera(screen)
-
-		frame++
-
-		sprites := []Sprite{}
-		for _, unit := range world.Units {
-			sprites = append(sprites, Sprite{
-				Frames: frames[unit.Skin+"_"+unit.Action].Frames,
-				Frame:  int(unit.Frame),
-				X:      unit.X,
-				Y:      unit.Y,
-				Side:   unit.Side,
-				Config: frames[unit.Skin+"_"+unit.Action].Config,
-			})
-		}
-		sort.Slice(sprites, func(i, j int) bool {
-			depth1 := sprites[i].Y + float64(sprites[i].Config.Height)
-			depth2 := sprites[j].Y + float64(sprites[j].Config.Height)
-			return depth1 < depth2
-		})
-
-		for _, sprite := range sprites {
-			op := &e.DrawImageOptions{}
-
-			if sprite.Side == game.Direction_left {
-				op.GeoM.Scale(-1, 1)
-				op.GeoM.Translate(float64(sprite.Config.Width), 0)
-			}
-
-			op.GeoM.Translate(sprite.X-camera.X, sprite.Y-camera.Y)
-
-			img, err := e.NewImageFromImage(sprite.Frames[(frame/7+sprite.Frame)%4], e.FilterDefault)
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-
-			err = screen.DrawImage(img, op)
-			if err != nil {
-				log.Println(err)
-				return err
-			}
-		}
-
-		ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", e.CurrentTPS()))
-
-		return nil
+	e.SetRunnableOnUnfocused(true)
+	e.SetWindowSize(config.width, config.height)
+	e.SetWindowTitle(config.title)
+	game := &Game{Conn: c}
+	if err := e.RunGame(game); err != nil {
+		log.Fatal(err)
 	}
 }
 
 func prepareLevelImage() (*e.Image, error) {
 	tileSize := 16
-	level := game.LoadLevel()
+	level := engine.LoadLevel()
 	width := len(level[0])
 	height := len(level)
-	levelImage, _ := e.NewImage(width*tileSize, height*tileSize, e.FilterDefault)
+	levelImage := e.NewImage(width*tileSize, height*tileSize)
 
 	for i := 0; i < width; i++ {
 		for j := 0; j < height; j++ {
 			op := &e.DrawImageOptions{}
 			op.GeoM.Translate(float64(i*tileSize), float64(j*tileSize))
 
-			img, err := e.NewImageFromImage(frames[level[j][i]].Frames[0], e.FilterDefault)
-			if err != nil {
-				log.Println(err)
-				return levelImage, err
-			}
-			err = levelImage.DrawImage(img, op)
-			if err != nil {
-				log.Println(err)
-				return levelImage, err
-			}
+			img := e.NewImageFromImage(frames[level[j][i]].Frames[0])
+			levelImage.DrawImage(img, op)
 		}
 	}
 
@@ -209,15 +209,15 @@ func handleCamera(screen *e.Image) {
 }
 
 func handleKeyboard(c *websocket.Conn) {
-	event := &game.Event{}
+	event := &engine.Event{}
 
 	if e.IsKeyPressed(e.KeyA) || e.IsKeyPressed(e.KeyLeft) {
-		event = &game.Event{
-			Type: game.Event_type_move,
-			Data: &game.Event_Move{
-				&game.EventMove{
+		event = &engine.Event{
+			Type: engine.Event_type_move,
+			Data: &engine.Event_Move{
+				Move: &engine.EventMove{
 					PlayerId:  world.MyID,
-					Direction: game.Direction_left,
+					Direction: engine.Direction_left,
 				},
 			},
 		}
@@ -227,12 +227,12 @@ func handleKeyboard(c *websocket.Conn) {
 	}
 
 	if e.IsKeyPressed(e.KeyD) || e.IsKeyPressed(e.KeyRight) {
-		event = &game.Event{
-			Type: game.Event_type_move,
-			Data: &game.Event_Move{
-				&game.EventMove{
+		event = &engine.Event{
+			Type: engine.Event_type_move,
+			Data: &engine.Event_Move{
+				Move: &engine.EventMove{
 					PlayerId:  world.MyID,
-					Direction: game.Direction_right,
+					Direction: engine.Direction_right,
 				},
 			},
 		}
@@ -242,12 +242,12 @@ func handleKeyboard(c *websocket.Conn) {
 	}
 
 	if e.IsKeyPressed(e.KeyW) || e.IsKeyPressed(e.KeyUp) {
-		event = &game.Event{
-			Type: game.Event_type_move,
-			Data: &game.Event_Move{
-				&game.EventMove{
+		event = &engine.Event{
+			Type: engine.Event_type_move,
+			Data: &engine.Event_Move{
+				Move: &engine.EventMove{
 					PlayerId:  world.MyID,
-					Direction: game.Direction_up,
+					Direction: engine.Direction_up,
 				},
 			},
 		}
@@ -257,12 +257,12 @@ func handleKeyboard(c *websocket.Conn) {
 	}
 
 	if e.IsKeyPressed(e.KeyS) || e.IsKeyPressed(e.KeyDown) {
-		event = &game.Event{
-			Type: game.Event_type_move,
-			Data: &game.Event_Move{
-				&game.EventMove{
+		event = &engine.Event{
+			Type: engine.Event_type_move,
+			Data: &engine.Event_Move{
+				Move: &engine.EventMove{
 					PlayerId:  world.MyID,
-					Direction: game.Direction_down,
+					Direction: engine.Direction_down,
 				},
 			},
 		}
@@ -273,7 +273,7 @@ func handleKeyboard(c *websocket.Conn) {
 
 	unit := world.Units[world.MyID]
 
-	if event.Type == game.Event_type_move {
+	if event.Type == engine.Event_type_move {
 		if prevKey != lastKey {
 			message, err := proto.Marshal(event)
 			if err != nil {
@@ -283,11 +283,11 @@ func handleKeyboard(c *websocket.Conn) {
 			c.WriteMessage(websocket.BinaryMessage, message)
 		}
 	} else {
-		if unit.Action != game.UnitActionIdle {
-			event = &game.Event{
-				Type: game.Event_type_idle,
-				Data: &game.Event_Idle{
-					&game.EventIdle{PlayerId: world.MyID},
+		if unit.Action != engine.UnitActionIdle {
+			event = &engine.Event{
+				Type: engine.Event_type_idle,
+				Data: &engine.Event_Idle{
+					Idle: &engine.EventIdle{PlayerId: world.MyID},
 				},
 			}
 			message, err := proto.Marshal(event)
