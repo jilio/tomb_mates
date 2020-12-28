@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	game "github.com/jilio/tomb_mates"
+	engine "github.com/jilio/tomb_mates"
 )
 
 const (
@@ -42,12 +42,12 @@ type Client struct {
 // The application runs readPump in a per-connection goroutine. The application
 // ensures that there is at most one reader on a connection by executing all
 // reads from this goroutine.
-func (c *Client) readPump(world *game.World) {
+func (c *Client) readPump(world *engine.World) {
 	defer func() {
-		event := &game.Event{
-			Type: game.Event_type_exit,
-			Data: &game.Event_Exit{
-				&game.EventExit{PlayerId: c.id},
+		event := &engine.Event{
+			Type: engine.Event_type_exit,
+			Data: &engine.Event_Exit{
+				&engine.EventExit{PlayerId: c.id},
 			},
 		}
 		message, err := proto.Marshal(event)
@@ -72,7 +72,7 @@ func (c *Client) readPump(world *game.World) {
 			break
 		}
 		c.hub.broadcast <- message // ?
-		event := &game.Event{}
+		event := &engine.Event{}
 		err = proto.Unmarshal(message, event)
 		if err != nil {
 			log.Println(err)
@@ -127,7 +127,7 @@ func (c *Client) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request) {
+func serveWs(hub *Hub, world *engine.World, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -138,10 +138,10 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 	client := &Client{id: id, hub: hub, conn: conn, send: make(chan []byte, 256)}
 	client.hub.register <- client
 
-	event := &game.Event{
-		Type: game.Event_type_init,
-		Data: &game.Event_Init{
-			&game.EventInit{
+	event := &engine.Event{
+		Type: engine.Event_type_init,
+		Data: &engine.Event_Init{
+			&engine.EventInit{
 				PlayerId: id,
 				Units:    world.Units,
 			},
@@ -155,10 +155,10 @@ func serveWs(hub *Hub, world *game.World, w http.ResponseWriter, r *http.Request
 	conn.WriteMessage(websocket.BinaryMessage, message)
 
 	unit := world.Units[id]
-	event = &game.Event{
-		Type: game.Event_type_connect,
-		Data: &game.Event_Connect{
-			&game.EventConnect{Unit: unit},
+	event = &engine.Event{
+		Type: engine.Event_type_connect,
+		Data: &engine.Event_Connect{
+			&engine.EventConnect{Unit: unit},
 		},
 	}
 	message, err = proto.Marshal(event)

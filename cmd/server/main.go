@@ -2,15 +2,15 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	game "github.com/jilio/tomb_mates"
+	engine "github.com/jilio/tomb_mates"
 )
 
-var world *game.World
+var world *engine.World
 
 func init() {
-	world = &game.World{
+	world = &engine.World{
 		Replica: false,
-		Units:   map[string]*game.Unit{},
+		Units:   map[string]*engine.Unit{},
 	}
 }
 
@@ -25,7 +25,7 @@ func main() {
 	r.Run(":3000")
 }
 
-func ginWsServe(hub *Hub, world *game.World) gin.HandlerFunc {
+func ginWsServe(hub *Hub, world *engine.World) gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		serveWs(hub, world, c.Writer, c.Request)
 	})
