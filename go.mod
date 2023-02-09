@@ -3,7 +3,7 @@ module github.com/jilio/tomb_mates
 go 1.15
 
 require (
-	github.com/gin-gonic/gin v1.7.0
+	github.com/gin-gonic/gin v1.7.7
 	github.com/golang/protobuf v1.3.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/hajimehoshi/ebiten/v2 v2.0.2
