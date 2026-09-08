@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang/protobuf v1.5.0
-	github.com/gorilla/websocket v1.4.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/hajimehoshi/ebiten/v2 v2.0.2
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/markbates/pkger v0.17.1
